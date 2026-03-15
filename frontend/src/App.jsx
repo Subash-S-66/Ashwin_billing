@@ -110,7 +110,12 @@ function App() {
         timestamp: bill.timestamp
       }, { responseType: 'blob' });
       const blobUrl = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      window.open(blobUrl, '_blank');
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = 'receipt.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     } catch (e) {
       alert('Failed to generate PDF');

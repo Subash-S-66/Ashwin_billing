@@ -292,7 +292,7 @@ def receipt_pdf():
         c.line(4 * mm, y_pos, width - 4 * mm, y_pos)
         c.setDash()
 
-    y = height - 6 * mm
+    y = height - 8 * mm
 
     # Logo (optional)
     logo_paths = [
@@ -305,13 +305,13 @@ def receipt_pdf():
         try:
             logo = ImageReader(logo_path)
             c.drawImage(logo, (width - 12 * mm) / 2, y - 12 * mm, 12 * mm, 12 * mm, preserveAspectRatio=True, mask='auto')
-            y -= 14 * mm
+        y -= 15 * mm
         except Exception:
             pass
 
     c.setFont("Helvetica-Bold", 10)
     c.drawCentredString(width / 2, y, "CAIRO CREAMERY")
-    y -= 4 * mm
+    y -= 6 * mm
     c.setFont("Helvetica", 7)
     c.drawCentredString(width / 2, y, "No 37, Box Food Street, OMR")
     y -= 3.5 * mm

@@ -1,0 +1,6 @@
+cd c:\Users\vijay\Downloads\billing\backend
+.\venv\Scripts\activate
+python app.py
+
+cd c:\Users\vijay\Downloads\billing\frontend
+npm run dev

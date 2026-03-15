@@ -4,6 +4,10 @@ import './App.css';
 import { ShoppingCart, Printer, Clock, FileText, Plus, Minus, Trash2 } from 'lucide-react';
 
 const getApiBase = () => {
+  const envBase = import.meta.env.VITE_API_BASE;
+  if (envBase && envBase.trim() !== '') {
+    return envBase.replace(/\/$/, '');
+  }
   if (import.meta.env.DEV) {
     const host = window.location.hostname || 'localhost';
     return `http://${host}:5000/api`;

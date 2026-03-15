@@ -11,6 +11,7 @@ from datetime import datetime
 import webbrowser
 from threading import Timer
 import io
+from urllib.request import urlopen
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
@@ -301,6 +302,7 @@ def receipt_pdf():
         os.path.abspath(os.path.join(base_dir, '../frontend/public/logo.jpeg')),
     ]
     logo_path = next((p for p in logo_paths if os.path.exists(p)), None)
+    logo_drawn = False
     if logo_path:
         try:
             logo = ImageReader(logo_path)
@@ -314,8 +316,37 @@ def receipt_pdf():
                 mask='auto'
             )
             y -= 15 * mm
+            logo_drawn = True
         except Exception:
             pass
+
+    if not logo_drawn:
+        logo_urls = []
+        if request.host_url:
+            logo_urls.append(request.host_url.rstrip('/') + '/logo.jpeg')
+        env_frontend = os.environ.get('FRONTEND_BASE_URL') or os.environ.get('VITE_FRONTEND_URL')
+        if env_frontend:
+            logo_urls.append(env_frontend.rstrip('/') + '/logo.jpeg')
+
+        for url in logo_urls:
+            try:
+                with urlopen(url, timeout=3) as resp:
+                    data = resp.read()
+                logo = ImageReader(io.BytesIO(data))
+                c.drawImage(
+                    logo,
+                    (width - 12 * mm) / 2,
+                    y - 12 * mm,
+                    12 * mm,
+                    12 * mm,
+                    preserveAspectRatio=True,
+                    mask='auto'
+                )
+                y -= 15 * mm
+                logo_drawn = True
+                break
+            except Exception:
+                continue
 
     y -= 0.03 * height
     c.setFont("Helvetica-Bold", 10)

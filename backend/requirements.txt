@@ -4,4 +4,3 @@ pandas
 openpyxl
 waitress
 reportlab
-weasyprint

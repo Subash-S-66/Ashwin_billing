@@ -101,71 +101,14 @@ function App() {
     }
   };
 
-  const buildReceiptHtml = (bill) => {
-    const itemsHtml = bill.items.map((it) => (
-      `<tr>
-        <td style="text-align:left;">${it.name}</td>
-        <td style="text-align:center;">${it.qty}</td>
-        <td style="text-align:right;">₹${(it.price * it.qty).toFixed(2)}</td>
-      </tr>`
-    )).join('');
-
-    return `
-<!doctype html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <style>
-      body { font-family: Arial, sans-serif; margin: 0; padding: 12px; }
-      .receipt { width: 58mm; }
-      .center { text-align: center; }
-      .title { font-size: 16px; font-weight: 700; margin: 6px 0; }
-      .addr { font-size: 10px; margin: 2px 0; }
-      .ts { font-size: 10px; margin: 6px 0; }
-      hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
-      table { width: 100%; border-collapse: collapse; font-size: 10px; }
-      th { text-align: left; font-size: 10px; }
-      .total { font-size: 12px; font-weight: 700; text-align: right; margin-top: 8px; }
-      .footer { font-size: 10px; text-align: center; margin-top: 10px; }
-      img { width: 40px; height: 40px; }
-    </style>
-  </head>
-  <body>
-    <div class="receipt">
-      <div class="center">
-        <img src="https://ashwin-billing.vercel.app/logo.jpeg" alt="Logo" />
-        <div class="title">CAIRO CREAMERY</div>
-        <div class="addr">No 37, Box Food Street, OMR</div>
-        <div class="addr">Kazhipattur, near Sipcot IT park</div>
-        <div class="addr">Siruseri, Chennai, Tamil Nadu 603103</div>
-        <div class="ts">${bill.timestamp}</div>
-      </div>
-      <hr />
-      <table>
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th style="text-align:center;">Qty</th>
-            <th style="text-align:right;">Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsHtml}
-        </tbody>
-      </table>
-      <hr />
-      <div class="total">Grand Total: ₹${bill.total.toFixed(2)}</div>
-      <div class="footer">Thank You! Visit Again</div>
-    </div>
-  </body>
-</html>`;
-  };
-
   const generateReceiptPdf = async (bill) => {
     if (!bill) return;
     try {
-      const html = buildReceiptHtml(bill);
-      const res = await axios.post(`${API_BASE}/receipt/html-pdf`, { html }, { responseType: 'blob' });
+      const res = await axios.post(`${API_BASE}/receipt/pdf`, {
+        items: bill.items,
+        total: bill.total,
+        timestamp: bill.timestamp
+      }, { responseType: 'blob' });
       const blobUrl = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = blobUrl;

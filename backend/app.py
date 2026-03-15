@@ -14,6 +14,7 @@ import io
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 
 
 if getattr(sys, 'frozen', False):
@@ -277,49 +278,84 @@ def receipt_pdf():
     timestamp = data.get('timestamp', '')
 
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    receipt_width = 58 * mm
+    min_height = 120 * mm
+    line_height = 5 * mm
+    dynamic_height = 70 * mm + (len(items) * line_height) + 20 * mm
+    receipt_height = max(min_height, dynamic_height)
 
-    y = height - 20 * mm
-    c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(width / 2, y, "CAIRO CREAMERY")
-    y -= 8 * mm
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(width / 2, y, "No 37, Box Food Street, OMR Kazhipattur, near Sipcot IT park, Siruseri, Chennai, Tamil Nadu 603103")
-    y -= 6 * mm
-    if timestamp:
-        c.drawCentredString(width / 2, y, str(timestamp))
-        y -= 8 * mm
-    c.line(15 * mm, y, width - 15 * mm, y)
-    y -= 8 * mm
+    c = canvas.Canvas(buffer, pagesize=(receipt_width, receipt_height))
+    width, height = receipt_width, receipt_height
+
+    def draw_dashed_line(y_pos):
+        c.setDash(2, 2)
+        c.line(4 * mm, y_pos, width - 4 * mm, y_pos)
+        c.setDash()
+
+    y = height - 6 * mm
+
+    # Logo (optional)
+    logo_paths = [
+        os.path.join(app_data_dir, 'logo.jpeg'),
+        os.path.abspath(os.path.join(base_dir, '../logo.jpeg')),
+        os.path.abspath(os.path.join(base_dir, '../frontend/public/logo.jpeg')),
+    ]
+    logo_path = next((p for p in logo_paths if os.path.exists(p)), None)
+    if logo_path:
+        try:
+            logo = ImageReader(logo_path)
+            c.drawImage(logo, (width - 12 * mm) / 2, y - 12 * mm, 12 * mm, 12 * mm, preserveAspectRatio=True, mask='auto')
+            y -= 14 * mm
+        except Exception:
+            pass
 
     c.setFont("Helvetica-Bold", 10)
-    c.drawString(20 * mm, y, "Item")
-    c.drawString(120 * mm, y, "Qty")
-    c.drawRightString(width - 20 * mm, y, "Price")
-    y -= 6 * mm
-    c.setFont("Helvetica", 10)
+    c.drawCentredString(width / 2, y, "CAIRO CREAMERY")
+    y -= 4 * mm
+    c.setFont("Helvetica", 7)
+    c.drawCentredString(width / 2, y, "No 37, Box Food Street, OMR")
+    y -= 3.5 * mm
+    c.drawCentredString(width / 2, y, "Kazhipattur, near Sipcot IT park,")
+    y -= 3.5 * mm
+    c.drawCentredString(width / 2, y, "Siruseri, Chennai, Tamil Nadu")
+    y -= 3.5 * mm
+    c.drawCentredString(width / 2, y, "603103")
+    y -= 4 * mm
+    if timestamp:
+        c.drawCentredString(width / 2, y, str(timestamp))
+        y -= 4.5 * mm
 
+    draw_dashed_line(y)
+    y -= 5 * mm
+
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(4 * mm, y, "Item")
+    c.drawRightString(width - 18 * mm, y, "Qty")
+    c.drawRightString(width - 4 * mm, y, "Price")
+    y -= 4 * mm
+
+    c.setFont("Helvetica", 7.5)
     for it in items:
         name = str(it.get('name', ''))
         qty = str(it.get('qty', ''))
         price = float(it.get('price', 0)) * float(it.get('qty', 0))
-        c.drawString(20 * mm, y, name[:35])
-        c.drawString(120 * mm, y, qty)
-        c.drawRightString(width - 20 * mm, y, f"{price:.2f}")
-        y -= 6 * mm
-        if y < 25 * mm:
-            c.showPage()
-            y = height - 20 * mm
-            c.setFont("Helvetica", 10)
+        c.drawString(4 * mm, y, name[:18])
+        c.drawRightString(width - 18 * mm, y, qty)
+        c.drawRightString(width - 4 * mm, y, f"₹{price:.2f}")
+        y -= line_height
 
-    y -= 4 * mm
-    c.line(15 * mm, y, width - 15 * mm, y)
-    y -= 8 * mm
-    c.setFont("Helvetica-Bold", 11)
-    c.drawRightString(width - 20 * mm, y, f"Grand Total: {float(total):.2f}")
+    y -= 1.5 * mm
+    draw_dashed_line(y)
+    y -= 5 * mm
 
-    c.showPage()
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(4 * mm, y, "Grand Total:")
+    c.drawRightString(width - 4 * mm, y, f"₹{float(total):.2f}")
+    y -= 6 * mm
+
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawCentredString(width / 2, y, "Thank You! Visit Again")
+
     c.save()
     buffer.seek(0)
 

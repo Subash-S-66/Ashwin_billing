@@ -14,6 +14,7 @@ import io
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
+from weasyprint import HTML
 
 
 if getattr(sys, 'frozen', False):
@@ -325,6 +326,25 @@ def receipt_pdf():
 
     return send_file(
         buffer,
+        as_attachment=True,
+        download_name="receipt.pdf",
+        mimetype='application/pdf'
+    )
+
+@app.route('/api/receipt/html-pdf', methods=['POST'])
+def receipt_html_pdf():
+    data = request.get_json() or {}
+    html = data.get('html', '')
+    if not html:
+        return jsonify({"error": "Missing html"}), 400
+
+    try:
+        pdf_bytes = HTML(string=html).write_pdf()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
         as_attachment=True,
         download_name="receipt.pdf",
         mimetype='application/pdf'

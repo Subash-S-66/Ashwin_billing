@@ -11,6 +11,9 @@ from datetime import datetime
 import webbrowser
 from threading import Timer
 import io
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm
 
 
 if getattr(sys, 'frozen', False):
@@ -264,6 +267,67 @@ def export_excel():
         as_attachment=True,
         download_name=filename,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+@app.route('/api/receipt/pdf', methods=['POST'])
+def receipt_pdf():
+    data = request.get_json() or {}
+    items = data.get('items', [])
+    total = data.get('total', 0)
+    timestamp = data.get('timestamp', '')
+
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    y = height - 20 * mm
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(width / 2, y, "CAIRO CREAMERY")
+    y -= 8 * mm
+    c.setFont("Helvetica", 9)
+    c.drawCentredString(width / 2, y, "No 37, Box Food Street, OMR Kazhipattur, near Sipcot IT park, Siruseri, Chennai, Tamil Nadu 603103")
+    y -= 6 * mm
+    if timestamp:
+        c.drawCentredString(width / 2, y, str(timestamp))
+        y -= 8 * mm
+    c.line(15 * mm, y, width - 15 * mm, y)
+    y -= 8 * mm
+
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(20 * mm, y, "Item")
+    c.drawString(120 * mm, y, "Qty")
+    c.drawRightString(width - 20 * mm, y, "Price")
+    y -= 6 * mm
+    c.setFont("Helvetica", 10)
+
+    for it in items:
+        name = str(it.get('name', ''))
+        qty = str(it.get('qty', ''))
+        price = float(it.get('price', 0)) * float(it.get('qty', 0))
+        c.drawString(20 * mm, y, name[:35])
+        c.drawString(120 * mm, y, qty)
+        c.drawRightString(width - 20 * mm, y, f"{price:.2f}")
+        y -= 6 * mm
+        if y < 25 * mm:
+            c.showPage()
+            y = height - 20 * mm
+            c.setFont("Helvetica", 10)
+
+    y -= 4 * mm
+    c.line(15 * mm, y, width - 15 * mm, y)
+    y -= 8 * mm
+    c.setFont("Helvetica-Bold", 11)
+    c.drawRightString(width - 20 * mm, y, f"Grand Total: {float(total):.2f}")
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name="receipt.pdf",
+        mimetype='application/pdf'
     )
 
 @app.route('/')

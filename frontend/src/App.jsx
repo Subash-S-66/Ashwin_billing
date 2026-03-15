@@ -97,9 +97,23 @@ function App() {
   const handlePrint = (doPrint) => {
     setShowPrintModal(false);
     if (doPrint) {
-      setTimeout(() => {
-        window.print();
-      }, 100);
+      generateReceiptPdf(lastBill);
+    }
+  };
+
+  const generateReceiptPdf = async (bill) => {
+    if (!bill) return;
+    try {
+      const res = await axios.post(`${API_BASE}/receipt/pdf`, {
+        items: bill.items,
+        total: bill.total,
+        timestamp: bill.timestamp
+      }, { responseType: 'blob' });
+      const blobUrl = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      window.open(blobUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (e) {
+      alert('Failed to generate PDF');
     }
   };
 

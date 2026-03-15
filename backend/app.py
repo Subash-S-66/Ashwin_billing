@@ -304,11 +304,20 @@ def receipt_pdf():
     if logo_path:
         try:
             logo = ImageReader(logo_path)
-            c.drawImage(logo, (width - 12 * mm) / 2, y - 12 * mm, 12 * mm, 12 * mm, preserveAspectRatio=True, mask='auto')
-        y -= 15 * mm
+            c.drawImage(
+                logo,
+                (width - 12 * mm) / 2,
+                y - 12 * mm,
+                12 * mm,
+                12 * mm,
+                preserveAspectRatio=True,
+                mask='auto'
+            )
+            y -= 15 * mm
         except Exception:
             pass
 
+    y -= 0.03 * height
     c.setFont("Helvetica-Bold", 10)
     c.drawCentredString(width / 2, y, "CAIRO CREAMERY")
     y -= 6 * mm
@@ -330,7 +339,7 @@ def receipt_pdf():
 
     c.setFont("Helvetica-Bold", 7.5)
     c.drawString(4 * mm, y, "Item")
-    c.drawRightString(width - 18 * mm, y, "Qty")
+    c.drawRightString(width - 22 * mm, y, "Qty")
     c.drawRightString(width - 4 * mm, y, "Price")
     y -= 4 * mm
 
@@ -340,8 +349,8 @@ def receipt_pdf():
         qty = str(it.get('qty', ''))
         price = float(it.get('price', 0)) * float(it.get('qty', 0))
         c.drawString(4 * mm, y, name[:18])
-        c.drawRightString(width - 18 * mm, y, qty)
-        c.drawRightString(width - 4 * mm, y, f"₹{price:.2f}")
+        c.drawRightString(width - 22 * mm, y, qty)
+        c.drawRightString(width - 4 * mm, y, f"Rs. {price:.2f}")
         y -= line_height
 
     y -= 1.5 * mm
@@ -350,7 +359,7 @@ def receipt_pdf():
 
     c.setFont("Helvetica-Bold", 8)
     c.drawString(4 * mm, y, "Grand Total:")
-    c.drawRightString(width - 4 * mm, y, f"₹{float(total):.2f}")
+    c.drawRightString(width - 4 * mm, y, f"Rs. {float(total):.2f}")
     y -= 6 * mm
 
     c.setFont("Helvetica-Oblique", 7)

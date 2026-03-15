@@ -590,7 +590,7 @@ body {
 }
 
 .receipt-header h2 {
-  margin: 5px 0;
+  margin: 10% 0 5px;
   font-size: 1.4rem;
   font-weight: 900;
 }
@@ -697,9 +697,19 @@ body {
 }
 
 @media (max-width: 992px) {
+  body {
+    overflow: hidden;
+  }
+
+  .app-container {
+    height: 100vh;
+    overflow: hidden;
+  }
+
   .billing-view {
     grid-template-columns: 1fr;
-    height: auto;
+    grid-template-rows: 1fr 50vh;
+    height: calc(100vh - 110px);
   }
 
   .edit-view,
@@ -719,17 +729,41 @@ body {
     margin-top: 1rem;
   }
 
+  .menu-grid {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
   .cart-section {
-    height: auto;
-    min-height: 400px;
-    position: sticky;
-    bottom: 0;
-    z-index: 5;
+    height: 50vh;
+    min-height: 50vh;
+    max-height: 50vh;
+    position: static;
     border-top: 2px solid var(--primary);
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .cart-items {
+    overflow-y: auto;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
+
+  .menu-section {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    overflow-y: auto;
   }
 
   .main-content {
     padding: 1rem;
+    height: calc(100vh - 110px);
+    overflow: hidden;
   }
 }
 
@@ -797,12 +831,6 @@ body {
     min-width: 0;
   }
 
-  .report-table th,
-  .report-table td {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.85rem;
-  }
-
   .flex-row {
     flex-direction: column;
   }
@@ -819,5 +847,92 @@ body {
   .nav-logo {
     height: 40px;
     align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 0.75rem;
+  }
+
+  .navbar h1 {
+    font-size: 1.25rem;
+  }
+
+  .nav-links button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+    padding-right: 0;
+    overflow: visible;
+  }
+
+  .menu-card {
+    padding: 1rem;
+    min-height: 120px;
+  }
+
+  .menu-header h2,
+  .cart-section h2,
+  .report-view h2,
+  .edit-view h2 {
+    font-size: 1.1rem;
+  }
+
+  .cart-items {
+    padding: 1rem;
+  }
+
+  .cart-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .qty-controls {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    padding: 0.85rem;
+  }
+
+  .modal-content {
+    padding: 1.5rem;
+  }
+
+  .receipt-container {
+    width: 72mm;
+  }
+
+  .category-tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
+    gap: 0.5rem;
+  }
+
+  .tab-btn {
+    flex: 1 1 auto;
+  }
+
+  .cart-items {
+    overflow: visible;
+  }
+
+  .menu-grid::-webkit-scrollbar,
+  .cart-items::-webkit-scrollbar,
+  .category-tabs::-webkit-scrollbar {
+    display: none;
   }
 }

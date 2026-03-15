@@ -47,7 +47,14 @@ def log_request_info():
         if data:
             print(f"Payload: {data}")
 
-DB_PATH = os.path.join(app_data_dir, 'billing.db')
+def get_writable_dir():
+    # Vercel serverless filesystem is read-only except /tmp
+    if os.environ.get('VERCEL'):
+        return '/tmp'
+    return app_data_dir
+
+WRITABLE_DIR = get_writable_dir()
+DB_PATH = os.path.join(WRITABLE_DIR, 'billing.db')
 MENU_PATH = os.path.join(app_data_dir, 'menu.json') if getattr(sys, 'frozen', False) else os.path.abspath(os.path.join(base_dir, '../menu.json'))
 
 def init_db():
@@ -169,7 +176,7 @@ def save_sale():
     
     # Save to Excel
     try:
-        excel_path = os.path.join(app_data_dir, 'Sales_Report.xlsx')
+        excel_path = os.path.join(WRITABLE_DIR, 'Sales_Report.xlsx')
         timestamp = datetime.now()
         date_str = timestamp.strftime('%Y-%m-%d')
         time_str = timestamp.strftime('%I:%M %p')

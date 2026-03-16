@@ -6,7 +6,11 @@ import json
 import math
 import pandas as pd
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+try:
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
 import webbrowser
 from threading import Timer
 import io
@@ -141,11 +145,36 @@ def serialize_sale(doc):
         "timestamp": ts.isoformat() if isinstance(ts, datetime) else ts,
     }
 
+def get_ist_tz():
+    if ZoneInfo is not None:
+        try:
+            return ZoneInfo("Asia/Kolkata")
+        except Exception:
+            pass
+    return timezone(timedelta(hours=5, minutes=30))
+
+IST_TZ = get_ist_tz()
+
+def now_ist():
+    return datetime.now(timezone.utc).astimezone(IST_TZ)
+
+def to_ist(dt):
+    if not isinstance(dt, datetime):
+        return dt
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(IST_TZ)
+
 def parse_date_param(date_str):
     try:
-        return datetime.strptime(date_str, '%Y-%m-%d')
+        return datetime.strptime(date_str, '%Y-%m-%d').date()
     except Exception:
         return None
+
+def ist_range_to_utc(start_date, end_date_exclusive):
+    start_ist = datetime.combine(start_date, datetime.min.time(), tzinfo=IST_TZ)
+    end_ist = datetime.combine(end_date_exclusive, datetime.min.time(), tzinfo=IST_TZ)
+    return start_ist.astimezone(timezone.utc), end_ist.astimezone(timezone.utc)
 
 def get_next_invoice_no():
     doc = counters_col.find_one_and_update(
@@ -223,13 +252,13 @@ def save_sale():
         "invoice_no": invoice_no,
         "items": items,
         "total": total,
-        "timestamp": datetime.now()
+        "timestamp": datetime.now(timezone.utc)
     })
     
     # Save to Excel
     try:
         excel_path = os.path.join(WRITABLE_DIR, 'Sales_Report.xlsx')
-        timestamp = datetime.now()
+        timestamp = now_ist()
         rows = []
         for it in items:
             qty = float(it.get('qty', 0) or 0)
@@ -277,40 +306,44 @@ def save_sale():
 
 @app.route('/api/report/daily', methods=['GET'])
 def get_daily_report():
-    start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    end = start + timedelta(days=1)
-    sales = list(sales_col.find({"timestamp": {"$gte": start, "$lt": end}}))
+    ist_now = now_ist()
+    start_date = ist_now.date()
+    end_date = start_date + timedelta(days=1)
+    start_utc, end_utc = ist_range_to_utc(start_date, end_date)
+    sales = list(sales_col.find({"timestamp": {"$gte": start_utc, "$lt": end_utc}}))
     return jsonify([serialize_sale(s) for s in sales])
 
 @app.route('/api/report/range', methods=['GET'])
 def get_report_range():
     start = request.args.get('start')
     end = request.args.get('end')
-    start_dt = parse_date_param(start)
-    end_dt = parse_date_param(end)
-    if not start_dt or not end_dt:
+    start_date = parse_date_param(start)
+    end_date = parse_date_param(end)
+    if not start_date or not end_date:
         return jsonify({"error": "Invalid date range"}), 400
 
-    end_dt = end_dt + timedelta(days=1)
-    sales = list(sales_col.find({"timestamp": {"$gte": start_dt, "$lt": end_dt}}))
+    end_date = end_date + timedelta(days=1)
+    start_utc, end_utc = ist_range_to_utc(start_date, end_date)
+    sales = list(sales_col.find({"timestamp": {"$gte": start_utc, "$lt": end_utc}}))
     return jsonify([serialize_sale(s) for s in sales])
 
 @app.route('/api/report/export', methods=['GET'])
 def export_excel():
     start = request.args.get('start')
     end = request.args.get('end')
-    start_dt = parse_date_param(start)
-    end_dt = parse_date_param(end)
-    if not start_dt or not end_dt:
+    start_date = parse_date_param(start)
+    end_date = parse_date_param(end)
+    if not start_date or not end_date:
         return jsonify({"error": "Invalid date range"}), 400
 
-    end_dt = end_dt + timedelta(days=1)
-    sales = list(sales_col.find({"timestamp": {"$gte": start_dt, "$lt": end_dt}}).sort("timestamp", ASCENDING))
+    end_date = end_date + timedelta(days=1)
+    start_utc, end_utc = ist_range_to_utc(start_date, end_date)
+    sales = list(sales_col.find({"timestamp": {"$gte": start_utc, "$lt": end_utc}}).sort("timestamp", ASCENDING))
 
     rows = []
     for s in sales:
         items = s.get("items", [])
-        ts = s.get("timestamp")
+        ts = to_ist(s.get("timestamp"))
         time_str = ts.strftime('%Y-%m-%d %I:%M:%S %p') if isinstance(ts, datetime) else str(ts)
         for it in items:
             qty = float(it.get('qty', 0) or 0)

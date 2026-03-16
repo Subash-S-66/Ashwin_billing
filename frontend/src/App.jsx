@@ -371,8 +371,8 @@ function App() {
                 </thead>
                 <tbody>
                   {report.map(sale => (
-                      <td>#{sale.invoice_no ?? sale.id}</td>
-                      <td>#{sale.id}</td>
+                      <tr key={sale.id}>
+                      <td>{`#${sale.invoice_no ?? sale.id}`}</td>
                       <td>{new Date(sale.timestamp).toLocaleTimeString()}</td>
                       <td>{sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}</td>
                       <td>₹{sale.total.toFixed(2)}</td>

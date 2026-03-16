@@ -11,7 +11,7 @@ import webbrowser
 from threading import Timer
 import io
 from urllib.request import urlopen
-from pymongo import MongoClient, ASCENDING
+from pymongo import MongoClient, ASCENDING, ReturnDocument
 from bson import ObjectId
 from bson.errors import InvalidId
 from reportlab.lib.pagesizes import A4
@@ -83,10 +83,12 @@ def get_mongo_db():
 mongo_db = get_mongo_db()
 menu_col = mongo_db['menu']
 sales_col = mongo_db['sales']
+counters_col = mongo_db['counters']
 
 def init_db():
     menu_col.create_index([('category', ASCENDING), ('name', ASCENDING)])
     sales_col.create_index([('timestamp', ASCENDING)])
+    counters_col.create_index([('name', ASCENDING)], unique=True)
     
     # Init menu if empty
     if menu_col.estimated_document_count() == 0:
@@ -133,6 +135,7 @@ def serialize_sale(doc):
     ts = doc.get("timestamp")
     return {
         "id": str(doc.get("_id")),
+        "invoice_no": doc.get("invoice_no"),
         "items": doc.get("items", []),
         "total": doc.get("total", 0),
         "timestamp": ts.isoformat() if isinstance(ts, datetime) else ts,
@@ -143,6 +146,15 @@ def parse_date_param(date_str):
         return datetime.strptime(date_str, '%Y-%m-%d')
     except Exception:
         return None
+
+def get_next_invoice_no():
+    doc = counters_col.find_one_and_update(
+        {"name": "invoice_no"},
+        {"$inc": {"value": 1}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER
+    )
+    return int(doc.get("value", 1))
 
 @app.route('/api/menu', methods=['GET'])
 def get_menu():
@@ -205,7 +217,10 @@ def save_sale():
     items = data.get('items', [])
     total = data.get('total', 0)
 
+    invoice_no = get_next_invoice_no()
+
     sales_col.insert_one({
+        "invoice_no": invoice_no,
         "items": items,
         "total": total,
         "timestamp": datetime.now()
@@ -217,23 +232,17 @@ def save_sale():
         timestamp = datetime.now()
         items_details = ", ".join([f"{it.get('name', '')} (x{it.get('qty', 0)})" for it in items])
 
-        if os.path.exists(excel_path):
-            df_existing = pd.read_excel(excel_path)
-            df_existing = df_existing.dropna(how='all')
-            next_invoice = int(len(df_existing)) + 1
-        else:
-            df_existing = None
-            next_invoice = 1
-
         new_row = {
-            "Invoice No": next_invoice,
+            "Invoice No": invoice_no,
             "Time": timestamp.strftime('%Y-%m-%d %I:%M:%S %p'),
             "Items Details": items_details,
             "Total Amount": f"₹{float(total):.2f}"
         }
 
         df_new = pd.DataFrame([new_row])
-        if df_existing is not None:
+        if os.path.exists(excel_path):
+            df_existing = pd.read_excel(excel_path)
+            df_existing = df_existing.dropna(how='all')
             df_combined = pd.concat([df_existing, df_new], ignore_index=True)
             df_combined.to_excel(excel_path, index=False)
         else:
@@ -276,12 +285,12 @@ def export_excel():
     sales = list(sales_col.find({"timestamp": {"$gte": start_dt, "$lt": end_dt}}).sort("timestamp", ASCENDING))
 
     rows = []
-    for idx, s in enumerate(sales, start=1):
+    for s in sales:
         items = s.get("items", [])
         items_details = ", ".join([f"{it.get('name', '')} (x{it.get('qty', 0)})" for it in items])
         ts = s.get("timestamp")
         rows.append({
-            "Invoice No": idx,
+            "Invoice No": s.get("invoice_no"),
             "Time": ts.strftime('%Y-%m-%d %I:%M:%S %p') if isinstance(ts, datetime) else str(ts),
             "Items Details": items_details,
             "Total Amount": f"₹{float(s.get('total', 0)):.2f}"

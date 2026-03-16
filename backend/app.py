@@ -1,6 +1,7 @@
 import sys
 import os
 from flask import Flask, request, jsonify, send_from_directory, send_file
+from werkzeug.exceptions import HTTPException
 from flask_cors import CORS
 import json
 import math
@@ -46,6 +47,8 @@ def add_cors_headers(response):
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return e
     print("!!! SERVER ERROR !!!")
     print(traceback.format_exc())
     return jsonify({"error": str(e)}), 500

@@ -227,7 +227,7 @@ def save_sale():
 
         new_row = {
             "Invoice No": next_invoice,
-            "Time": timestamp.strftime('%I:%M:%S %p'),
+            "Time": timestamp.strftime('%Y-%m-%d %I:%M:%S %p'),
             "Items Details": items_details,
             "Total Amount": f"₹{float(total):.2f}"
         }
@@ -282,7 +282,7 @@ def export_excel():
         ts = s.get("timestamp")
         rows.append({
             "Invoice No": idx,
-            "Time": ts.strftime('%I:%M:%S %p') if isinstance(ts, datetime) else str(ts),
+            "Time": ts.strftime('%Y-%m-%d %I:%M:%S %p') if isinstance(ts, datetime) else str(ts),
             "Items Details": items_details,
             "Total Amount": f"₹{float(s.get('total', 0)):.2f}"
         })

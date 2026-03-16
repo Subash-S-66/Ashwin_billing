@@ -243,13 +243,23 @@ def save_sale():
                 "Line Total": price * qty
             })
         # Add total row at the bottom of this invoice
+        total_qty = sum([float(it.get('qty', 0) or 0) for it in items])
         rows.append({
             "Invoice No": invoice_no,
             "Time": timestamp.strftime('%Y-%m-%d %I:%M:%S %p'),
             "Item Name": "TOTAL",
-            "Qty": "",
+            "Qty": total_qty,
             "Price": "",
             "Line Total": float(total)
+        })
+        # Empty line after each invoice block
+        rows.append({
+            "Invoice No": "",
+            "Time": "",
+            "Item Name": "",
+            "Qty": "",
+            "Price": "",
+            "Line Total": ""
         })
 
         df_new = pd.DataFrame(rows)
@@ -314,13 +324,23 @@ def export_excel():
                 "Line Total": price * qty
             })
         # Total row at the bottom of each invoice
+        total_qty = sum([float(it.get('qty', 0) or 0) for it in items])
         rows.append({
             "Invoice No": s.get("invoice_no"),
             "Time": time_str,
             "Item Name": "TOTAL",
-            "Qty": "",
+            "Qty": total_qty,
             "Price": "",
             "Line Total": float(s.get("total", 0))
+        })
+        # Empty line after each invoice block
+        rows.append({
+            "Invoice No": "",
+            "Time": "",
+            "Item Name": "",
+            "Qty": "",
+            "Price": "",
+            "Line Total": ""
         })
     
     df = pd.DataFrame(rows)

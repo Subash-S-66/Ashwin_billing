@@ -230,16 +230,29 @@ def save_sale():
     try:
         excel_path = os.path.join(WRITABLE_DIR, 'Sales_Report.xlsx')
         timestamp = datetime.now()
-        items_details = ", ".join([f"{it.get('name', '')} (x{it.get('qty', 0)})" for it in items])
-
-        new_row = {
+        rows = []
+        for it in items:
+            qty = float(it.get('qty', 0) or 0)
+            price = float(it.get('price', 0) or 0)
+            rows.append({
+                "Invoice No": invoice_no,
+                "Time": timestamp.strftime('%Y-%m-%d %I:%M:%S %p'),
+                "Item Name": it.get('name', ''),
+                "Qty": qty,
+                "Price": price,
+                "Line Total": price * qty
+            })
+        # Add total row at the bottom of this invoice
+        rows.append({
             "Invoice No": invoice_no,
             "Time": timestamp.strftime('%Y-%m-%d %I:%M:%S %p'),
-            "Items Details": items_details,
-            "Total Amount": f"₹{float(total):.2f}"
-        }
+            "Item Name": "TOTAL",
+            "Qty": "",
+            "Price": "",
+            "Line Total": float(total)
+        })
 
-        df_new = pd.DataFrame([new_row])
+        df_new = pd.DataFrame(rows)
         if os.path.exists(excel_path):
             df_existing = pd.read_excel(excel_path)
             df_existing = df_existing.dropna(how='all')
@@ -287,13 +300,27 @@ def export_excel():
     rows = []
     for s in sales:
         items = s.get("items", [])
-        items_details = ", ".join([f"{it.get('name', '')} (x{it.get('qty', 0)})" for it in items])
         ts = s.get("timestamp")
+        time_str = ts.strftime('%Y-%m-%d %I:%M:%S %p') if isinstance(ts, datetime) else str(ts)
+        for it in items:
+            qty = float(it.get('qty', 0) or 0)
+            price = float(it.get('price', 0) or 0)
+            rows.append({
+                "Invoice No": s.get("invoice_no"),
+                "Time": time_str,
+                "Item Name": it.get('name', ''),
+                "Qty": qty,
+                "Price": price,
+                "Line Total": price * qty
+            })
+        # Total row at the bottom of each invoice
         rows.append({
             "Invoice No": s.get("invoice_no"),
-            "Time": ts.strftime('%Y-%m-%d %I:%M:%S %p') if isinstance(ts, datetime) else str(ts),
-            "Items Details": items_details,
-            "Total Amount": f"₹{float(s.get('total', 0)):.2f}"
+            "Time": time_str,
+            "Item Name": "TOTAL",
+            "Qty": "",
+            "Price": "",
+            "Line Total": float(s.get("total", 0))
         })
     
     df = pd.DataFrame(rows)

@@ -25,6 +25,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 
 
+
 if getattr(sys, 'frozen', False):
     # PyInstaller creates a temp folder and stores path in _MEIPASS
     base_dir = sys._MEIPASS

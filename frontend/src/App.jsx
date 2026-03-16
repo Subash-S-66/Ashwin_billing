@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { ShoppingCart, Printer, Clock, FileText, Plus, Minus, Trash2 } from 'lucide-react';
 
 const getApiBase = () => {
@@ -16,6 +19,17 @@ const getApiBase = () => {
 };
 const API_BASE = getApiBase();
 console.log("Using API_BASE:", API_BASE);
+
+const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    const result = reader.result || '';
+    const base64 = result.toString().split(',')[1] || '';
+    resolve(base64);
+  };
+  reader.onerror = reject;
+  reader.readAsDataURL(blob);
+});
 
 function App() {
   const [menu, setMenu] = useState([]);
@@ -109,14 +123,32 @@ function App() {
         total: bill.total,
         timestamp: bill.timestamp
       }, { responseType: 'blob' });
-      const blobUrl = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = 'receipt.pdf';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      const pdfBlob = new Blob([res.data], { type: 'application/pdf' });
+      if (Capacitor.isNativePlatform()) {
+        const base64 = await blobToBase64(pdfBlob);
+        const safeStamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `receipt-${safeStamp}.pdf`;
+        const saved = await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Documents,
+          recursive: true
+        });
+        await Share.share({
+          title: 'Receipt',
+          text: 'Receipt PDF',
+          url: saved.uri
+        });
+      } else {
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = 'receipt.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      }
     } catch (e) {
       alert('Failed to generate PDF');
     }

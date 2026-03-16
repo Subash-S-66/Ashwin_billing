@@ -215,23 +215,25 @@ def save_sale():
     try:
         excel_path = os.path.join(WRITABLE_DIR, 'Sales_Report.xlsx')
         timestamp = datetime.now()
-        date_str = timestamp.strftime('%Y-%m-%d')
-        time_str = timestamp.strftime('%I:%M %p')
-        day_str = timestamp.strftime('%A')
-        
-        rows = []
-        for item in items:
-            rows.append({
-                'Food Name': item['name'],
-                'Amount': item['price'] * item['qty'],
-                'date_date_timestamp': timestamp.strftime('%Y-%m-%d %H:%M:%S')
-            })
-            
-        df_new = pd.DataFrame(rows)
-        
+        items_details = ", ".join([f"{it.get('name', '')} (x{it.get('qty', 0)})" for it in items])
+
         if os.path.exists(excel_path):
             df_existing = pd.read_excel(excel_path)
             df_existing = df_existing.dropna(how='all')
+            next_invoice = int(len(df_existing)) + 1
+        else:
+            df_existing = None
+            next_invoice = 1
+
+        new_row = {
+            "Invoice No": next_invoice,
+            "Time": timestamp.strftime('%I:%M:%S %p'),
+            "Items Details": items_details,
+            "Total Amount": f"₹{float(total):.2f}"
+        }
+
+        df_new = pd.DataFrame([new_row])
+        if df_existing is not None:
             df_combined = pd.concat([df_existing, df_new], ignore_index=True)
             df_combined.to_excel(excel_path, index=False)
         else:
@@ -271,17 +273,19 @@ def export_excel():
         return jsonify({"error": "Invalid date range"}), 400
 
     end_dt = end_dt + timedelta(days=1)
-    sales = list(sales_col.find({"timestamp": {"$gte": start_dt, "$lt": end_dt}}))
+    sales = list(sales_col.find({"timestamp": {"$gte": start_dt, "$lt": end_dt}}).sort("timestamp", ASCENDING))
 
     rows = []
-    for s in sales:
+    for idx, s in enumerate(sales, start=1):
         items = s.get("items", [])
-        for it in items:
-            rows.append({
-                "Food Name": it["name"],
-                "Amount": it["price"] * it["qty"],
-                "date_date_timestamp": s.get("timestamp")
-            })
+        items_details = ", ".join([f"{it.get('name', '')} (x{it.get('qty', 0)})" for it in items])
+        ts = s.get("timestamp")
+        rows.append({
+            "Invoice No": idx,
+            "Time": ts.strftime('%I:%M:%S %p') if isinstance(ts, datetime) else str(ts),
+            "Items Details": items_details,
+            "Total Amount": f"₹{float(s.get('total', 0)):.2f}"
+        })
     
     df = pd.DataFrame(rows)
     

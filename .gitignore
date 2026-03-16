@@ -13,6 +13,9 @@ env/
 node_modules/
 dist/
 build/
+frontend/android/
+frontend/assets/
+frontend/capacitor.config.json
 
 *.db
 *.sqlite

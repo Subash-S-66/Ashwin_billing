@@ -2,16 +2,18 @@ import sys
 import os
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
-import sqlite3
 import json
 import math
 import pandas as pd
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 import webbrowser
 from threading import Timer
 import io
 from urllib.request import urlopen
+from pymongo import MongoClient, ASCENDING
+from bson import ObjectId
+from bson.errors import InvalidId
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
@@ -59,38 +61,40 @@ def get_writable_dir():
     return app_data_dir
 
 WRITABLE_DIR = get_writable_dir()
-DB_PATH = os.path.join(WRITABLE_DIR, 'billing.db')
 MENU_PATH = os.path.join(app_data_dir, 'menu.json') if getattr(sys, 'frozen', False) else os.path.abspath(os.path.join(base_dir, '../menu.json'))
 
+MONGODB_URI = os.environ.get('MONGODB_URI')
+MONGODB_DB = os.environ.get('MONGODB_DB', '').strip()
+
+def get_mongo_db():
+    if not MONGODB_URI:
+        raise RuntimeError('MONGODB_URI is not set. Configure it in the environment.')
+    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+    if MONGODB_DB:
+        return client[MONGODB_DB]
+    try:
+        default_db = client.get_default_database()
+        if default_db is not None:
+            return default_db
+    except Exception:
+        pass
+    return client['CAIRO_CREAMERY']
+
+mongo_db = get_mongo_db()
+menu_col = mongo_db['menu']
+sales_col = mongo_db['sales']
+
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS sales (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            items_json TEXT,
-            total REAL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS menu (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category TEXT,
-            name TEXT,
-            price REAL,
-            out_of_stock INTEGER DEFAULT 0
-        )
-    ''')
-    conn.commit()
+    menu_col.create_index([('category', ASCENDING), ('name', ASCENDING)])
+    sales_col.create_index([('timestamp', ASCENDING)])
     
     # Init menu if empty
-    c.execute('SELECT COUNT(*) FROM menu')
-    if c.fetchone()[0] == 0:
+    if menu_col.estimated_document_count() == 0:
         if os.path.exists(MENU_PATH):
             with open(MENU_PATH, 'r', encoding='utf-8') as f:
                 raw_menu = json.load(f)
                 category = "General"
+                docs = []
                 for row in raw_menu:
                     col0 = row.get('Menu Price List')
                     col1 = row.get('Unnamed: 1')
@@ -99,28 +103,51 @@ def init_db():
                     if isinstance(col0, str) and (col1 is None or (isinstance(col1, float) and math.isnan(col1))):
                         category = col0.strip(' .0123456789')
                     elif isinstance(col1, str) and (isinstance(col2, (int, float)) and not math.isnan(col2)):
-                        c.execute('INSERT INTO menu (category, name, price, out_of_stock) VALUES (?, ?, ?, 0)', (category, col1, col2))
-            conn.commit()
+                        docs.append({
+                            "category": category,
+                            "name": col1,
+                            "price": float(col2),
+                            "out_of_stock": 0
+                        })
+                if docs:
+                    menu_col.insert_many(docs)
         else:
             # Insert some defaults if menu.json not found
-            c.execute('INSERT INTO menu (category, name, price, out_of_stock) VALUES (?, ?, ?, 0)', ("Default", "Coffee", 100))
-            c.execute('INSERT INTO menu (category, name, price, out_of_stock) VALUES (?, ?, ?, 0)', ("Default", "Tea", 50))
-            conn.commit()
-    conn.close()
+            menu_col.insert_many([
+                {"category": "Default", "name": "Coffee", "price": 100, "out_of_stock": 0},
+                {"category": "Default", "name": "Tea", "price": 50, "out_of_stock": 0},
+            ])
 
 init_db()
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+def serialize_menu_item(doc):
+    return {
+        "id": str(doc.get("_id")),
+        "category": doc.get("category"),
+        "name": doc.get("name"),
+        "price": doc.get("price", 0),
+        "out_of_stock": doc.get("out_of_stock", 0),
+    }
+
+def serialize_sale(doc):
+    ts = doc.get("timestamp")
+    return {
+        "id": str(doc.get("_id")),
+        "items": doc.get("items", []),
+        "total": doc.get("total", 0),
+        "timestamp": ts.isoformat() if isinstance(ts, datetime) else ts,
+    }
+
+def parse_date_param(date_str):
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%d')
+    except Exception:
+        return None
 
 @app.route('/api/menu', methods=['GET'])
 def get_menu():
-    conn = get_db_connection()
-    items = conn.execute('SELECT * FROM menu ORDER BY category ASC, name ASC').fetchall()
-    conn.close()
-    return jsonify([dict(item) for item in items])
+    items = list(menu_col.find().sort([('category', ASCENDING), ('name', ASCENDING)]))
+    return jsonify([serialize_menu_item(item) for item in items])
 
 @app.route('/api/menu', methods=['POST'])
 def add_menu_item():
@@ -132,14 +159,15 @@ def add_menu_item():
     except (ValueError, TypeError):
         price = 0.0
     
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('INSERT INTO menu (category, name, price, out_of_stock) VALUES (?, ?, ?, 0)', (category, name, price))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
+    result = menu_col.insert_one({
+        "category": category,
+        "name": name,
+        "price": price,
+        "out_of_stock": 0
+    })
+    return jsonify({"status": "success", "id": str(result.inserted_id)})
 
-@app.route('/api/menu/<int:item_id>', methods=['PUT'])
+@app.route('/api/menu/<item_id>', methods=['PUT'])
 def update_menu_item(item_id):
     data = request.get_json()
     category = data.get('category')
@@ -149,35 +177,39 @@ def update_menu_item(item_id):
     except (ValueError, TypeError):
         price = 0.0
     out_of_stock = data.get('out_of_stock', 0)
-    
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('UPDATE menu SET category=?, name=?, price=?, out_of_stock=? WHERE id=?', (category, name, price, out_of_stock, item_id))
-    conn.commit()
-    conn.close()
+
+    try:
+        oid = ObjectId(item_id)
+    except InvalidId:
+        return jsonify({"error": "Invalid item id"}), 400
+
+    menu_col.update_one(
+        {"_id": oid},
+        {"$set": {"category": category, "name": name, "price": price, "out_of_stock": out_of_stock}}
+    )
     return jsonify({"status": "success"})
 
-@app.route('/api/menu/<int:item_id>', methods=['DELETE'])
+@app.route('/api/menu/<item_id>', methods=['DELETE'])
 def delete_menu_item(item_id):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('DELETE FROM menu WHERE id=?', (item_id,))
-    conn.commit()
-    conn.close()
+    try:
+        oid = ObjectId(item_id)
+    except InvalidId:
+        return jsonify({"error": "Invalid item id"}), 400
+
+    menu_col.delete_one({"_id": oid})
     return jsonify({"status": "success"})
 
 @app.route('/api/sales', methods=['POST'])
 def save_sale():
     data = request.json
     items = data.get('items', [])
-    items_json = json.dumps(items)
     total = data.get('total', 0)
-    
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('INSERT INTO sales (items_json, total) VALUES (?, ?)', (items_json, total))
-    conn.commit()
-    conn.close()
+
+    sales_col.insert_one({
+        "items": items,
+        "total": total,
+        "timestamp": datetime.now()
+    })
     
     # Save to Excel
     try:
@@ -211,48 +243,44 @@ def save_sale():
 
 @app.route('/api/report/daily', methods=['GET'])
 def get_daily_report():
-    conn = get_db_connection()
-    today = datetime.now().strftime('%Y-%m-%d')
-    sales = conn.execute('SELECT * FROM sales WHERE date(timestamp) = ?', (today,)).fetchall()
-    conn.close()
-    
-    return jsonify([{
-        "id": s["id"],
-        "items": json.loads(s["items_json"]),
-        "total": s["total"],
-        "timestamp": s["timestamp"]
-    } for s in sales])
+    start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+    sales = list(sales_col.find({"timestamp": {"$gte": start, "$lt": end}}))
+    return jsonify([serialize_sale(s) for s in sales])
 
 @app.route('/api/report/range', methods=['GET'])
 def get_report_range():
     start = request.args.get('start')
     end = request.args.get('end')
-    conn = get_db_connection()
-    sales = conn.execute('SELECT * FROM sales WHERE date(timestamp) BETWEEN ? AND ?', (start, end)).fetchall()
-    conn.close()
-    return jsonify([{
-        "id": s["id"],
-        "items": json.loads(s["items_json"]),
-        "total": s["total"],
-        "timestamp": s["timestamp"]
-    } for s in sales])
+    start_dt = parse_date_param(start)
+    end_dt = parse_date_param(end)
+    if not start_dt or not end_dt:
+        return jsonify({"error": "Invalid date range"}), 400
+
+    end_dt = end_dt + timedelta(days=1)
+    sales = list(sales_col.find({"timestamp": {"$gte": start_dt, "$lt": end_dt}}))
+    return jsonify([serialize_sale(s) for s in sales])
 
 @app.route('/api/report/export', methods=['GET'])
 def export_excel():
     start = request.args.get('start')
     end = request.args.get('end')
-    conn = get_db_connection()
-    sales = conn.execute('SELECT * FROM sales WHERE date(timestamp) BETWEEN ? AND ?', (start, end)).fetchall()
-    conn.close()
-    
+    start_dt = parse_date_param(start)
+    end_dt = parse_date_param(end)
+    if not start_dt or not end_dt:
+        return jsonify({"error": "Invalid date range"}), 400
+
+    end_dt = end_dt + timedelta(days=1)
+    sales = list(sales_col.find({"timestamp": {"$gte": start_dt, "$lt": end_dt}}))
+
     rows = []
     for s in sales:
-        items = json.loads(s["items_json"])
+        items = s.get("items", [])
         for it in items:
             rows.append({
                 "Food Name": it["name"],
                 "Amount": it["price"] * it["qty"],
-                "date_date_timestamp": s["timestamp"]
+                "date_date_timestamp": s.get("timestamp")
             })
     
     df = pd.DataFrame(rows)

@@ -19,11 +19,13 @@ from urllib.request import urlopen
 from pymongo import MongoClient, ASCENDING, ReturnDocument
 from bson import ObjectId
 from bson.errors import InvalidId
+from dotenv import load_dotenv
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 
+load_dotenv()
 
 if getattr(sys, 'frozen', False):
     # PyInstaller creates a temp folder and stores path in _MEIPASS

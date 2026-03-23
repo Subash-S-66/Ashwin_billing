@@ -5,3 +5,4 @@ openpyxl
 waitress
 reportlab
 pymongo
+python-dotenv

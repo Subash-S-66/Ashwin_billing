@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
 import { Capacitor } from '@capacitor/core';
@@ -47,6 +47,19 @@ function App() {
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [lastBill, setLastBill] = useState(null);
+  const categoryTabsRef = useRef(null);
+
+  useEffect(() => {
+    const el = categoryTabsRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   // Group menu items by category
   const categories = [...new Set(menu.map(i => i.category))];
@@ -264,7 +277,7 @@ function App() {
                 />
               </div>
 
-              <div className="category-tabs no-print">
+              <div className="category-tabs no-print" ref={categoryTabsRef}>
                 <button
                   className={`tab-btn ${selectedCategory === 'All' ? 'active' : ''}`}
                   onClick={() => setSelectedCategory('All')}
@@ -287,8 +300,11 @@ function App() {
                   <div key={item.id} className={`menu-card ${item.out_of_stock ? 'out-of-stock-card' : ''}`} onClick={() => addToCart(item)}>
                     {item.out_of_stock ? <div className="out-of-stock-text">OUT OF STOCK</div> : null}
                     <div className="card-content">
-                      {selectedCategory === 'All' && <span className="item-category">{item.category}</span>}
-                      <span className="item-name">{item.name}</span>
+                      <span className="menu-card-title text-safe">
+                        <span className="item-category-text">{item.category}</span>
+                        <span className="menu-card-sep"> - </span>
+                        <span className="item-name-text">{item.name}</span>
+                      </span>
                       <span className="item-price">₹{item.price}</span>
                     </div>
                   </div>
@@ -296,7 +312,7 @@ function App() {
               </div>
             </div>
 
-            <div className="cart-section printable">
+            <div className="cart-section cart-panel printable">
               <h2>Current Order</h2>
               <div className="cart-items">
                 {cart.length === 0 ? (
@@ -305,7 +321,7 @@ function App() {
                   cart.map(item => (
                     <div key={item.id} className="cart-item">
                       <div className="item-details">
-                        <span className="name">{item.name}</span>
+                        <span className="name text-safe">{item.name}</span>
                         <span className="price">₹{item.price * item.qty}</span>
                       </div>
                       <div className="qty-controls no-print">
@@ -372,9 +388,9 @@ function App() {
                 <tbody>
                   {report.map(sale => (
                     <tr key={sale.id}>
-                      <td>#{sale.id}</td>
+                      <td>{`#${sale.invoice_no ?? sale.id}`}</td>
                       <td>{new Date(sale.timestamp).toLocaleTimeString()}</td>
-                      <td>{sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}</td>
+                      <td className="text-safe">{sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}</td>
                       <td>₹{sale.total.toFixed(2)}</td>
                     </tr>
                   ))}
@@ -384,13 +400,38 @@ function App() {
                 </tbody>
               </table>
             </div>
+            <div className="mobile-card-list">
+              {report.map(sale => (
+                <div key={sale.id} className="mobile-report-card">
+                  <div className="mobile-report-row">
+                    <span className="mobile-report-label">Invoice</span>
+                    <span className="mobile-report-value">{`#${sale.invoice_no ?? sale.id}`}</span>
+                  </div>
+                  <div className="mobile-report-row">
+                    <span className="mobile-report-label">Time</span>
+                    <span className="mobile-report-value">{new Date(sale.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                  <div className="mobile-report-row">
+                    <span className="mobile-report-label">Items</span>
+                    <span className="mobile-report-value text-safe">{sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}</span>
+                  </div>
+                  <div className="mobile-report-row">
+                    <span className="mobile-report-label">Total</span>
+                    <span className="mobile-report-value">â‚¹{sale.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
+              {report.length === 0 && (
+                <div className="mobile-report-empty text-center">No sales yet today.</div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="edit-view">
             <h2>Edit Menu Items</h2>
             <div className="add-item-form">
               <h3>Add New Item</h3>
-              <form onSubmit={addNewItem} className="form-group flex-row">
+              <form onSubmit={addNewItem} className="form-group flex-row form-row">
                 <select
                   value={isNewCategory ? '__NEW__' : addForm.category}
                   onChange={e => {

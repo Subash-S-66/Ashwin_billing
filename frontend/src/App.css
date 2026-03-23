@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
@@ -326,7 +328,7 @@ textarea {
   justify-content: space-between;
   align-items: stretch;
   text-align: left;
-  min-height: 100px;
+  min-height: 120px;
   position: relative;
   overflow: hidden;
 }
@@ -372,11 +374,15 @@ textarea {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+  text-align: center;
 }
 
 .item-category-text {
   color: var(--primary);
   font-weight: 700;
+  font-family: bold;
+  font-size: 1.5em;
+  letter-spacing: 0.01em;
 }
 
 .menu-card-sep {
@@ -388,22 +394,37 @@ textarea {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--primary);
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-family: 'Pacifico', cursive, sans-serif;
+  font-size: 1rem;
 }
-
 .item-name {
   font-weight: 600;
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  margin-bottom: 0rem;
   color: var(--text-main);
-}
+  }
 
 .item-price {
   font-weight: 700;
   color: var(--secondary);
   font-size: 1.1rem;
-}
+  }
+  .item-name-text {
+    font-family: bold;
+    font-size: 1rem; /* Increased by 30% from 1.5rem */
+    font-weight: 600;
+    color: var(--text-main);
+    margin-top: 0.1em;
+    margin-bottom: 0.2em;
+  }
+  .item-price-centered {
+    text-align: center;
+    font-size: 1.1em;
+    font-weight: 700;
+    color: white;
+    margin-top: 0.2em;
+  }
 
 .cart-section {
   background: var(--card-bg);
@@ -791,6 +812,7 @@ textarea {
   width: 100%;
   font-size: 0.9rem;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .receipt-table-bill th {
@@ -804,6 +826,32 @@ textarea {
 
 .text-left {
   text-align: left;
+}
+
+.receipt-table-bill td.text-left {
+  white-space: normal;
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.receipt-table-bill th:nth-child(1),
+.receipt-table-bill td:nth-child(1) {
+  width: 60%;
+}
+
+.receipt-table-bill th:nth-child(2),
+.receipt-table-bill td:nth-child(2) {
+  width: 15%;
+}
+
+.receipt-table-bill th:nth-child(3),
+.receipt-table-bill td:nth-child(3) {
+  width: 30%;
 }
 
 .text-right {

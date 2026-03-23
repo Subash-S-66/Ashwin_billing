@@ -300,12 +300,11 @@ function App() {
                   <div key={item.id} className={`menu-card ${item.out_of_stock ? 'out-of-stock-card' : ''}`} onClick={() => addToCart(item)}>
                     {item.out_of_stock ? <div className="out-of-stock-text">OUT OF STOCK</div> : null}
                     <div className="card-content">
-                      <span className="menu-card-title text-safe">
-                        <span className="item-category-text">{item.category}</span>
-                        <span className="menu-card-sep"> - </span>
-                        <span className="item-name-text">{item.name}</span>
-                      </span>
-                      <span className="item-price">₹{item.price}</span>
+                      <div className="menu-card-title text-safe">
+                        <div className="item-category-text">{item.category}</div>
+                        <div className="item-name-text">{item.name}</div>
+                      </div>
+                      <div className="item-price-centered">₹{item.price}</div>
                     </div>
                   </div>
                 ))}

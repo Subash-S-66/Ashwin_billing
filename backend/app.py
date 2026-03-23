@@ -505,9 +505,25 @@ def receipt_pdf():
         name = str(it.get('name', ''))
         qty = str(it.get('qty', ''))
         price = float(it.get('price', 0)) * float(it.get('qty', 0))
-        c.drawString(4 * mm, y, name[:18])
+        max_len = 18
+        words = name.split()
+        first_line = ''
+        second_line = ''
+        for word in words:
+            if len(first_line + ' ' + word) <= max_len or not first_line:
+                if first_line:
+                    first_line += ' '
+                first_line += word
+            else:
+                if second_line:
+                    second_line += ' '
+                second_line += word
+        c.drawString(4 * mm, y, first_line)
         c.drawRightString(width - 22 * mm, y, qty)
         c.drawRightString(width - 4 * mm, y, f"Rs. {price:.2f}")
+        if second_line:
+            y -= line_height * 0.7  # Reduced gap for second line
+            c.drawString(4 * mm, y, second_line)
         y -= line_height
 
     y -= 1.5 * mm

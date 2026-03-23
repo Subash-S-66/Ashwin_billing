@@ -1483,36 +1483,11 @@ textarea {
     overflow-y: visible !important;
   }
 
-  /* Increase current orders list size by 20% in tablet view */
-  @media (min-width: 600px) {
+  /* Reduce current orders list max-height by 25% in tablet view (min-width: 600px, max-width: 900px) */
+  @media (min-width: 600px) and (max-width: 900px) {
     .cart-section, .cart-panel {
-      max-height: 72vh !important; /* 20% increase from 60vh */
+      max-height: 45vh !important; /* Reduced by 25% from 60vh (60 * 0.75 = 45) */
     }
-
-    .cart-item {
-      padding: 1.2rem 0 !important; /* 20% increase in padding */
-    }
-
-    .item-details .name {
-      font-size: 1.2rem !important; /* 20% larger text */
-    }
-
-    .item-details .price {
-      font-size: 1.08rem !important;
-    }
-
-    .qty-controls span {
-      font-size: 1.14rem !important;
-    }
-
-    .qty-controls button {
-      width: 31px !important;
-      height: 31px !important;
-      font-size: 1.1rem !important;
-    }
-
-    .main-content {
-      padding-bottom: 75vh !important;
-    }
+    /* Keep other tablet-specific styles unchanged */
   }
 }

@@ -374,7 +374,7 @@ function App() {
               </div>
             </div>
 
-            <div className="table-container">
+            <div className="table-container hide-on-mobile">
               <table className="report-table">
                 <thead>
                   <tr>
@@ -399,7 +399,7 @@ function App() {
                 </tbody>
               </table>
             </div>
-            <div className="mobile-card-list">
+            <div className="mobile-card-list show-on-mobile" style={{ display: 'none' }}>
               {report.map(sale => (
                 <div key={sale.id} className="mobile-report-card">
                   <div className="mobile-report-row">
@@ -416,7 +416,7 @@ function App() {
                   </div>
                   <div className="mobile-report-row">
                     <span className="mobile-report-label">Total</span>
-                    <span className="mobile-report-value">â‚¹{sale.total.toFixed(2)}</span>
+                    <span className="mobile-report-value">₹{sale.total.toFixed(2)}</span>
                   </div>
                 </div>
               ))}
@@ -459,7 +459,7 @@ function App() {
 
             <div className="edit-items-list">
               <h3>Existing Items</h3>
-              <div className="table-container">
+              <div className="table-container hide-on-mobile">
                 <table className="report-table">
                   <thead><tr><th>Category</th><th>Name</th><th>Price</th><th>Availability</th><th>Action</th></tr></thead>
                   <tbody>
@@ -500,6 +500,53 @@ function App() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="mobile-card-list show-on-mobile" style={{ display: 'none' }}>
+                {menu.map(item => (
+                  <div key={item.id} className="mobile-report-card">
+                    {editItem === item.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <input className="search-box" value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })} placeholder="Category" />
+                        <input className="search-box" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} placeholder="Name" />
+                        <input className="search-box" type="number" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} placeholder="Price" />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: editForm.out_of_stock ? '#EF4444' : '#10B981', fontWeight: 'bold' }}>{editForm.out_of_stock ? 'Out of Stock' : 'In Stock'}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button className="btn-primary" style={{ flex: 1 }} onClick={() => saveEdit(item.id, editForm)}>Save</button>
+                          <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setEditItem(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div className="mobile-report-row">
+                          <span className="mobile-report-label">Category</span>
+                          <span className="mobile-report-value text-safe">{item.category}</span>
+                        </div>
+                        <div className="mobile-report-row">
+                          <span className="mobile-report-label">Name</span>
+                          <span className="mobile-report-value text-safe">{item.name}</span>
+                        </div>
+                        <div className="mobile-report-row">
+                          <span className="mobile-report-label">Price</span>
+                          <span className="mobile-report-value">₹{item.price}</span>
+                        </div>
+                        <div className="mobile-report-row">
+                          <span className="mobile-report-label">Availability</span>
+                          <span className="mobile-report-value">
+                            <button className={`btn-secondary ${item.out_of_stock ? 'danger-outline' : ''}`} style={item.out_of_stock ? { borderColor: '#EF4444', color: '#EF4444', padding: '0.5rem' } : { borderColor: '#10B981', color: '#10B981', padding: '0.5rem' }} onClick={() => toggleOutOfStock(item)}>
+                              {item.out_of_stock ? "Mark as In Stock" : "Mark Out of Stock"}
+                            </button>
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                          <button className="btn-secondary" style={{ flex: 1 }} onClick={() => { setEditItem(item.id); setEditForm({ ...item }); }}>Edit</button>
+                          <button className="btn-secondary" style={{ flex: 1, borderColor: '#EF4444', color: '#EF4444' }} onClick={() => deleteItem(item.id)}>Delete</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

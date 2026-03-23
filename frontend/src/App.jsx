@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import axios from 'axios';
 import './App.css';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-import { ShoppingCart, Printer, Clock, FileText, Plus, Minus, Trash2 } from 'lucide-react';
+
+// Lazy loading the views
+const BillingView = lazy(() => import('./components/BillingView'));
+const ReportView = lazy(() => import('./components/ReportView'));
+const EditView = lazy(() => import('./components/EditView'));
 
 const getApiBase = () => {
   const envBase = import.meta.env.VITE_API_BASE;
@@ -45,7 +49,6 @@ function App() {
   const [editForm, setEditForm] = useState({ name: '', price: '', category: '' });
   const [addForm, setAddForm] = useState({ name: '', price: '', category: 'General' });
   const [isNewCategory, setIsNewCategory] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
   const [lastBill, setLastBill] = useState(null);
 
   // Group menu items by category
@@ -96,22 +99,19 @@ function App() {
     if (cart.length === 0) return;
     try {
       await axios.post(`${API_BASE}/sales`, { items: cart, total });
-      setLastBill({
+      const currentBill = {
         items: [...cart],
         total,
         timestamp: new Date().toLocaleString()
-      });
-      setShowPrintModal(true);
+      };
+      setLastBill(currentBill);
       setCart([]);
+
+      // Auto-print immediately after confirming order
+      generateReceiptPdf(currentBill);
+
     } catch (e) {
       alert('Error saving sale');
-    }
-  };
-
-  const handlePrint = (doPrint) => {
-    setShowPrintModal(false);
-    if (doPrint) {
-      generateReceiptPdf(lastBill);
     }
   };
 
@@ -124,6 +124,7 @@ function App() {
         timestamp: bill.timestamp
       }, { responseType: 'blob' });
       const pdfBlob = new Blob([res.data], { type: 'application/pdf' });
+
       if (Capacitor.isNativePlatform()) {
         const base64 = await blobToBase64(pdfBlob);
         const safeStamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -141,13 +142,16 @@ function App() {
         });
       } else {
         const blobUrl = URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = 'receipt.pdf';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = blobUrl;
+        document.body.appendChild(iframe);
+        iframe.onload = () => {
+          setTimeout(() => {
+            iframe.focus();
+            iframe.contentWindow.print();
+          }, 100);
+        };
       }
     } catch (e) {
       alert('Failed to generate PDF');
@@ -155,11 +159,15 @@ function App() {
   };
 
   const fetchReport = async () => {
-    const res = await axios.get(`${API_BASE}/report/daily`);
-    setReport(res.data);
-    setStartDate(new Date().toISOString().split('T')[0]);
-    setEndDate(new Date().toISOString().split('T')[0]);
-    setView('report');
+    try {
+      const res = await axios.get(`${API_BASE}/report/daily`);
+      setReport(res.data);
+      setStartDate(new Date().toISOString().split('T')[0]);
+      setEndDate(new Date().toISOString().split('T')[0]);
+      setView('report');
+    } catch (e) {
+      alert("Failed to fetch daily report");
+    }
   };
 
   const fetchRangeReport = async () => {
@@ -229,12 +237,6 @@ function App() {
     }
   };
 
-  const filteredMenu = menu.filter(m => {
-    const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || m.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
   return (
     <div className="app-container">
       <nav className="navbar">
@@ -250,234 +252,51 @@ function App() {
       </nav>
 
       <main className="main-content">
-        {view === 'billing' ? (
-          <div className="billing-view">
-            <div className="menu-section">
-              <div className="menu-header">
-                <h2>Menu Items</h2>
-                <input
-                  type="text"
-                  placeholder="Search item..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="search-box"
-                />
-              </div>
-
-              <div className="category-tabs no-print">
-                <button
-                  className={`tab-btn ${selectedCategory === 'All' ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory('All')}
-                >
-                  All
-                </button>
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    className={`tab-btn ${selectedCategory === cat ? 'active' : ''}`}
-                    onClick={() => setSelectedCategory(cat)}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              <div className="menu-grid">
-                {filteredMenu.map(item => (
-                  <div key={item.id} className={`menu-card ${item.out_of_stock ? 'out-of-stock-card' : ''}`} onClick={() => addToCart(item)}>
-                    {item.out_of_stock ? <div className="out-of-stock-text">OUT OF STOCK</div> : null}
-                    <div className="card-content">
-                      {selectedCategory === 'All' && <span className="item-category">{item.category}</span>}
-                      <span className="item-name">{item.name}</span>
-                      <span className="item-price">₹{item.price}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="cart-section printable">
-              <h2>Current Order</h2>
-              <div className="cart-items">
-                {cart.length === 0 ? (
-                  <div className="empty-cart">No items in cart</div>
-                ) : (
-                  cart.map(item => (
-                    <div key={item.id} className="cart-item">
-                      <div className="item-details">
-                        <span className="name">{item.name}</span>
-                        <span className="price">₹{item.price * item.qty}</span>
-                      </div>
-                      <div className="qty-controls no-print">
-                        <button onClick={() => updateQty(item.id, -1)}><Minus size={16} /></button>
-                        <span>{item.qty}</span>
-                        <button onClick={() => updateQty(item.id, 1)}><Plus size={16} /></button>
-                      </div>
-                      <div className="print-only">
-                        Qty: {item.qty}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="cart-summary">
-                <div className="total-row">
-                  <span>Grand Total:</span>
-                  <span>₹{total.toFixed(2)}</span>
-                </div>
-                <div className="action-buttons no-print">
-                  <button className="btn-primary" onClick={checkout}>Confirm Order</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : view === 'report' ? (
-          <div className="report-view">
-            <h2>Daily Sales Report</h2>
-            <div className="report-summary">
-              <div className="summary-card">
-                <h3>Total Sales</h3>
-                <p>₹{report.reduce((sum, s) => sum + s.total, 0).toFixed(2)}</p>
-              </div>
-              <div className="summary-card">
-                <h3>Orders</h3>
-                <p>{report.length}</p>
-              </div>
-              <div className="summary-card date-filter no-print">
-                <h3>Filter Dates</h3>
-                <div className="flex-row" style={{ gap: '10px', marginTop: '10px' }}>
-                  <input type="date" className="search-box" value={startDate} onChange={e => setStartDate(e.target.value)} />
-                  <input type="date" className="search-box" value={endDate} onChange={e => setEndDate(e.target.value)} />
-                  <button className="btn-primary" onClick={fetchRangeReport}>Filter</button>
-                </div>
-              </div>
-              <div className="flex-row no-print" style={{ gap: '10px' }}>
-                <button className="btn-secondary" onClick={downloadExcel} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <FileText size={18} /> Download Excel
-                </button>
-                <button className="btn-primary" onClick={() => window.print()}>Print Report</button>
-              </div>
-            </div>
-
-            <div className="table-container">
-              <table className="report-table">
-                <thead>
-                  <tr>
-                    <th>Invoice ID</th>
-                    <th>Time</th>
-                    <th>Items Details</th>
-                    <th>Total Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.map(sale => (
-                    <tr key={sale.id}>
-                      <td>#{sale.id}</td>
-                      <td>{new Date(sale.timestamp).toLocaleTimeString()}</td>
-                      <td>{sale.items.map(i => `${i.name} (x${i.qty})`).join(', ')}</td>
-                      <td>₹{sale.total.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                  {report.length === 0 && (
-                    <tr><td colSpan="4" className="text-center">No sales yet today.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : (
-          <div className="edit-view">
-            <h2>Edit Menu Items</h2>
-            <div className="add-item-form">
-              <h3>Add New Item</h3>
-              <form onSubmit={addNewItem} className="form-group flex-row">
-                <select
-                  value={isNewCategory ? '__NEW__' : addForm.category}
-                  onChange={e => {
-                    if (e.target.value === '__NEW__') {
-                      setIsNewCategory(true);
-                      setAddForm({ ...addForm, category: '' });
-                    } else {
-                      setIsNewCategory(false);
-                      setAddForm({ ...addForm, category: e.target.value });
-                    }
-                  }}
-                  className="search-box"
-                >
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                  {categories.length === 0 && <option value="General">General</option>}
-                  <option value="__NEW__">+ Add New Section</option>
-                </select>
-                {isNewCategory && (
-                  <input type="text" placeholder="New Category Name" value={addForm.category} onChange={e => setAddForm({ ...addForm, category: e.target.value })} required className="search-box" />
-                )}
-                <input type="text" placeholder="Item Name" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} required className="search-box" />
-                <input type="number" placeholder="Price" value={addForm.price} onChange={e => setAddForm({ ...addForm, price: e.target.value })} required className="search-box" />
-                <button type="submit" className="btn-primary">Add Item</button>
-              </form>
-            </div>
-
-            <div className="edit-items-list">
-              <h3>Existing Items</h3>
-              <div className="table-container">
-                <table className="report-table">
-                  <thead><tr><th>Category</th><th>Name</th><th>Price</th><th>Availability</th><th>Action</th></tr></thead>
-                  <tbody>
-                    {menu.map(item => (
-                      <tr key={item.id}>
-                        <td>
-                          {editItem === item.id ? <input className="search-box" value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })} /> : item.category}
-                        </td>
-                        <td>
-                          {editItem === item.id ? <input className="search-box" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} /> : item.name}
-                        </td>
-                        <td>
-                          {editItem === item.id ? <input className="search-box" type="number" value={editForm.price} onChange={e => setEditForm({ ...editForm, price: e.target.value })} /> : `₹${item.price}`}
-                        </td>
-                        <td>
-                          {editItem === item.id ? (
-                            <span style={{ color: editForm.out_of_stock ? '#EF4444' : '#10B981', fontWeight: 'bold' }}>{editForm.out_of_stock ? 'Out of Stock' : 'In Stock'}</span>
-                          ) : (
-                            <button className={`btn-secondary ${item.out_of_stock ? 'danger-outline' : ''}`} style={item.out_of_stock ? { borderColor: '#EF4444', color: '#EF4444' } : { borderColor: '#10B981', color: '#10B981' }} onClick={() => toggleOutOfStock(item)}>
-                              {item.out_of_stock ? "Mark as In Stock" : "Mark Out of Stock"}
-                            </button>
-                          )}
-                        </td>
-                        <td>
-                          {editItem === item.id ? (
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <button className="btn-primary" onClick={() => saveEdit(item.id, editForm)}>Save</button>
-                              <button className="btn-secondary" onClick={() => setEditItem(null)}>Cancel</button>
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <button className="btn-secondary" onClick={() => { setEditItem(item.id); setEditForm({ ...item }); }}>Edit</button>
-                              <button className="btn-secondary" style={{ borderColor: '#EF4444', color: '#EF4444' }} onClick={() => deleteItem(item.id)}>Delete</button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
+        <Suspense fallback={<div style={{ textAlign: 'center', padding: '2rem' }}>Loading view...</div>}>
+          {view === 'billing' ? (
+            <BillingView
+              menu={menu}
+              cart={cart}
+              search={search}
+              setSearch={setSearch}
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
+              categories={categories}
+              addToCart={addToCart}
+              updateQty={updateQty}
+              checkout={checkout}
+              total={total}
+            />
+          ) : view === 'report' ? (
+            <ReportView
+              report={report}
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              fetchRangeReport={fetchRangeReport}
+              downloadExcel={downloadExcel}
+            />
+          ) : (
+            <EditView
+              menu={menu}
+              categories={categories}
+              isNewCategory={isNewCategory}
+              setIsNewCategory={setIsNewCategory}
+              addForm={addForm}
+              setAddForm={setAddForm}
+              addNewItem={addNewItem}
+              editItem={editItem}
+              setEditItem={setEditItem}
+              editForm={editForm}
+              setEditForm={setEditForm}
+              saveEdit={saveEdit}
+              deleteItem={deleteItem}
+              toggleOutOfStock={toggleOutOfStock}
+            />
+          )}
+        </Suspense>
       </main>
-
-      {showPrintModal && (
-        <div className="modal-overlay no-print">
-          <div className="modal-content text-center">
-            <h3>Order Confirmed!</h3>
-            <p>Would you like to print the bill?</p>
-            <div className="flex-row" style={{ marginTop: '20px' }}>
-              <button className="btn-primary" onClick={() => handlePrint(true)}>Yes, Print</button>
-              <button className="btn-secondary" onClick={() => handlePrint(false)}>No, Thanks</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {lastBill && (
         <div className="receipt-container print-only">
@@ -499,7 +318,7 @@ function App() {
             <tbody>
               {lastBill.items.map((item, idx) => (
                 <tr key={idx}>
-                  <td className="text-left">{item.name}</td>
+                  <td className="text-left">{item.category} - {item.name}</td>
                   <td>{item.qty}</td>
                   <td className="text-right">₹{(item.price * item.qty).toFixed(2)}</td>
                 </tr>

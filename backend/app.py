@@ -406,7 +406,16 @@ def receipt_pdf():
     receipt_width = 58 * mm
     min_height = 120 * mm
     line_height = 5 * mm
-    dynamic_height = 70 * mm + (len(items) * line_height) + 20 * mm
+
+    # Calculate extra lines needed for wrapping
+    extra_lines = 0
+    max_chars_per_line = 18
+    for it in items:
+        name = f"{it.get('category', '')} - {it.get('name', '')}" if it.get('category') else str(it.get('name', ''))
+        if len(name) > max_chars_per_line:
+            extra_lines += 1
+
+    dynamic_height = 70 * mm + ((len(items) + extra_lines) * line_height) + 20 * mm
     receipt_height = max(min_height, dynamic_height)
 
     c = canvas.Canvas(buffer, pagesize=(receipt_width, receipt_height))
@@ -500,13 +509,38 @@ def receipt_pdf():
 
     c.setFont("Helvetica", 7.5)
     for it in items:
-        name = str(it.get('name', ''))
+        # Construct item name with Category - Name format
+        full_name = f"{it.get('category', '')} - {it.get('name', '')}" if it.get('category') else str(it.get('name', ''))
         qty = str(it.get('qty', ''))
         price = float(it.get('price', 0)) * float(it.get('qty', 0))
-        c.drawString(4 * mm, y, name[:18])
-        c.drawRightString(width - 22 * mm, y, qty)
-        c.drawRightString(width - 4 * mm, y, f"Rs. {price:.2f}")
-        y -= line_height
+
+        if len(full_name) > max_chars_per_line:
+            # Try to wrap smartly by finding a hyphen or space
+            split_idx = max_chars_per_line
+            for i in range(max_chars_per_line, 0, -1):
+                if full_name[i] in ['-', ' ']:
+                    split_idx = i + 1
+                    break
+
+            line1 = full_name[:split_idx].strip()
+            line2 = full_name[split_idx:split_idx+max_chars_per_line].strip() # wrap to max 2 lines
+
+            # If line1 doesn't end with hyphen and we break middle of word, add hyphen
+            if split_idx == max_chars_per_line and not line1.endswith('-'):
+                 line1 = line1[:-1] + '-'
+                 line2 = full_name[split_idx-1:split_idx-1+max_chars_per_line].strip()
+
+            c.drawString(4 * mm, y, line1)
+            c.drawRightString(width - 22 * mm, y, qty)
+            c.drawRightString(width - 4 * mm, y, f"Rs. {price:.2f}")
+            y -= line_height
+            c.drawString(4 * mm, y, "  " + line2)
+            y -= line_height
+        else:
+            c.drawString(4 * mm, y, full_name)
+            c.drawRightString(width - 22 * mm, y, qty)
+            c.drawRightString(width - 4 * mm, y, f"Rs. {price:.2f}")
+            y -= line_height
 
     y -= 1.5 * mm
     draw_dashed_line(y)

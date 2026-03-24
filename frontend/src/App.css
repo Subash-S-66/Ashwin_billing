@@ -29,18 +29,14 @@
 
 html,
 body {
-  height: 100%;
-  overflow: hidden;
-}
-
-body {
   font-family: 'Inter', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
   line-height: 1.5;
-  min-height: 100%;
+  min-height: 100vh;
+  height: 100vh;
   overflow-x: hidden;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 
 .container {
@@ -136,6 +132,8 @@ textarea {
   width: 100%;
   overflow-x: hidden;
   overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 1100px) {
@@ -644,46 +642,98 @@ textarea {
 .report-view {
   background: var(--card-bg);
   border-radius: var(--radius);
-  padding: 2rem;
+  padding: 1rem;
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.report-view h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .report-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .table-container {
   width: 100%;
   overflow-x: auto;
+  overflow-y: auto;
+  flex: 1 1 0;
+  min-height: 200px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  z-index: 20;
+  background: var(--card-bg);
 }
 
 .summary-card {
   background: var(--card-bg);
   color: white;
-  padding: 1.5rem;
+  padding: 1rem;
   border-radius: var(--radius);
   flex: 1;
   border-left: 4px solid var(--primary);
   box-shadow: var(--shadow);
 }
 
+.summary-card.date-filter .search-box {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  min-height: 38px;
+}
+
+.summary-card.date-filter .btn-primary {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  min-height: 38px;
+}
+
+.date-filter-controls {
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 .summary-card h3 {
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 500;
   opacity: 0.9;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .summary-card p {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
+}
+
+.report-main-actions {
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.report-main-actions .btn-secondary {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.report-main-actions .btn-primary,
+.report-main-actions .btn-secondary {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  min-height: 38px;
+  flex: 0 1 auto;
 }
 
 .report-table {

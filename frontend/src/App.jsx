@@ -360,14 +360,14 @@ function App() {
               </div>
               <div className="summary-card date-filter no-print">
                 <h3>Filter Dates</h3>
-                <div className="flex-row" style={{ gap: '10px', marginTop: '10px' }}>
+                <div className="flex-row date-filter-controls">
                   <input type="date" className="search-box" value={startDate} onChange={e => setStartDate(e.target.value)} />
                   <input type="date" className="search-box" value={endDate} onChange={e => setEndDate(e.target.value)} />
                   <button className="btn-primary" onClick={fetchRangeReport}>Filter</button>
                 </div>
               </div>
-              <div className="flex-row no-print" style={{ gap: '10px' }}>
-                <button className="btn-secondary" onClick={downloadExcel} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div className="flex-row no-print report-main-actions">
+                <button className="btn-secondary" onClick={downloadExcel}>
                   <FileText size={18} /> Download Excel
                 </button>
                 <button className="btn-primary" onClick={() => window.print()}>Print Report</button>
